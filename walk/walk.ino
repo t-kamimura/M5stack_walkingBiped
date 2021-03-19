@@ -23,22 +23,23 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
 ///////////////////////////////////////////////////
 
 // 4つのサーボのアドレスを指定
-#define ADDR_SERVO_NECK  1
-#define ADDR_SERVO_WAIST 2
-#define ADDR_SERVO_LEFT  3
-#define ADDR_SERVO_RIGHT 4
+#define ADDR_NECK  1
+#define ADDR_WAIST 2
+#define ADDR_LEFT  3
+#define ADDR_RIGHT 4
 
 // サーボの中心位置調整
-#define CENTER_SERVO_NECK  90
-#define CENTER_SERVO_WAIST 97
-#define CENTER_SERVO_LEFT  90
-#define CENTER_SERVO_RIGHT 90
+#define CENTER_NECK  90
+#define CENTER_WAIST 90
+#define CENTER_LEFT  90
+#define CENTER_RIGHT 90
 
 ///////////////////////////////////////////////////
 // 制御関連変数
 // 必要に応じて変更してください
 ///////////////////////////////////////////////////
-// // 歩行パラメータ
+
+// 歩行パラメータ
 int twistAngle = 20;
 int tiltAngle = 18;
 int twistDelay = 150;
@@ -46,7 +47,7 @@ int tiltDelay = 180;
 
 
 ///////////////////////////////////////////////////
-// 加速度センサー関連
+// 姿勢センサー関連
 // 変更しないでしてください
 ///////////////////////////////////////////////////
 
@@ -60,6 +61,11 @@ float az = 0.0F;
 int depth = 200;
 int circle_x = 160;
 int circle_y = 120;
+
+// ロール，ピッチ，ヨー
+float roll = 0.0F;
+float pitch = 0.0F;
+float yaw = 0.0F;
 
 // 保存ファイル名の設定
 #define LOG_FILE_PREFIX "acclog"
@@ -109,12 +115,12 @@ void servo_angle_write(uint8_t n, int Angle) {
 }
 
 void twist(int angle){
-  servo_angle_write(ADDR_SERVO_NECK, CENTER_SERVO_NECK - angle);
-  servo_angle_write(ADDR_SERVO_LEFT, CENTER_SERVO_LEFT + angle);
-  servo_angle_write(ADDR_SERVO_RIGHT, CENTER_SERVO_RIGHT + angle);
+  servo_angle_write(ADDR_NECK,  CENTER_NECK - angle);
+  servo_angle_write(ADDR_LEFT,  CENTER_LEFT + angle);
+  servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + angle);
 }
 void tilt(int angle){
-  servo_angle_write(ADDR_SERVO_WAIST, CENTER_SERVO_WAIST - angle);
+  servo_angle_write(ADDR_WAIST, CENTER_WAIST - angle);
 }
 
 ///////////////////////////////////////////////////
@@ -164,6 +170,8 @@ void updateFileName()
   }
   Serial.print("File name: ");
   Serial.println(logFileName); // Debug print the file name
+  M5.Lcd.setCursor(0, 10);
+  M5.Lcd.printf("Current trial: %d", i);
 }
 
 void acc_log(void * pvParameters) {
@@ -171,9 +179,9 @@ void acc_log(void * pvParameters) {
     M5.update();
 
     if (M5.BtnA.wasPressed()) {
-        M5.Lcd.setCursor(0, 30);
-        M5.Lcd.println("Start>");
         M5.Lcd.setCursor(0, 50);
+        M5.Lcd.println("Start>");
+        M5.Lcd.setCursor(0, 70);
         M5.Lcd.println("Press B button to end");
 
         logFile = SD.open(logFileName, FILE_APPEND); // Open the log file
@@ -187,7 +195,7 @@ void acc_log(void * pvParameters) {
     if (M5.BtnB.wasPressed()) {
         fOK = false;
         logFile.close(); // close the file
-        M5.Lcd.setCursor(0, 70);
+        M5.Lcd.setCursor(0, 90);
         M5.Lcd.println("End");
         Serial.println("data log stopped.");
     }
@@ -197,6 +205,8 @@ void acc_log(void * pvParameters) {
       {
         time_cur = millis();
         M5.IMU.getAccelData(&ax,&ay,&az);
+        M5.IMU.getAhrsData(&pitch,&roll,&yaw);
+
         // ローパスフィルタ
         float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
         accX = ratio * accX + (1-ratio)*ax;
@@ -265,10 +275,10 @@ void setup() {
   M5.Lcd.setTextSize(2);
 
   // 姿勢を全部初期位置に戻す
-  servo_angle_write(ADDR_SERVO_NECK, CENTER_SERVO_NECK);
-  servo_angle_write(ADDR_SERVO_WAIST, CENTER_SERVO_WAIST);
-  servo_angle_write(ADDR_SERVO_LEFT, CENTER_SERVO_LEFT);
-  servo_angle_write(ADDR_SERVO_RIGHT, CENTER_SERVO_RIGHT);
+  servo_angle_write(ADDR_NECK,  CENTER_NECK);
+  servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+  servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+  servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
   delay(2000);
 
   // ログファイルの作成
@@ -283,7 +293,7 @@ void setup() {
   xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,1,NULL,1);
   // xTaskCreatePinnedToCore(acc_monitor,"acc_monitor",4096,NULL,1,NULL,1);
 
-  M5.Lcd.setCursor(0, 10);
+  M5.Lcd.setCursor(0, 30);
   M5.Lcd.println("Press A button to start");
 
   M5.Lcd.setCursor(0, 210);
@@ -302,20 +312,20 @@ void loop() {
   if (fOK)
   {
     // 以下にモーション作成
-    servo_angle_write(ADDR_SERVO_NECK,  80);
-    servo_angle_write(ADDR_SERVO_WAIST, 100);
-    servo_angle_write(ADDR_SERVO_LEFT,  80);
-    servo_angle_write(ADDR_SERVO_RIGHT, 100);
+    servo_angle_write(ADDR_NECK,  80);
+    servo_angle_write(ADDR_WAIST, 100);
+    servo_angle_write(ADDR_LEFT,  80);
+    servo_angle_write(ADDR_RIGHT, 100);
     delay(1000);
 
     // モーションはここまで
   }
   else
   {
-    servo_angle_write(ADDR_SERVO_NECK,  CENTER_SERVO_NECK);
-    servo_angle_write(ADDR_SERVO_WAIST, CENTER_SERVO_WAIST);
-    servo_angle_write(ADDR_SERVO_LEFT,  CENTER_SERVO_LEFT);
-    servo_angle_write(ADDR_SERVO_RIGHT, CENTER_SERVO_RIGHT);
+    servo_angle_write(ADDR_NECK,  CENTER_NECK);
+    servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+    servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+    servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
     delay(100);
   }
 
