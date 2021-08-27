@@ -45,6 +45,14 @@ int tiltAngle = 18;
 int twistDelay = 150;
 int tiltDelay = 180;
 
+///////////////////////////////////////////////////
+// マルチコア関連定数
+// 変更しないでください
+///////////////////////////////////////////////////
+#define LOGTASK_CORE 1
+#define WALKTASK_CORE 0
+#define LOGTASK_PRI 1
+#define WALKTASK_PRI 2
 
 ///////////////////////////////////////////////////
 // 姿勢センサー関連
@@ -205,7 +213,7 @@ void acc_log(void * pvParameters) {
       {
         time_cur = millis();
         M5.IMU.getAccelData(&ax,&ay,&az);
-        M5.IMU.getAhrsData(&pitch,&roll,&yaw);
+//        M5.IMU.getAhrsData(&pitch,&roll,&yaw);
 
         // ローパスフィルタ
         float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
@@ -225,6 +233,7 @@ void acc_log(void * pvParameters) {
         lastLog = millis(); // Update the lastLog variable
       }
     }
+    vTaskDelay(1);
   }
 }
 
@@ -259,6 +268,46 @@ void acc_monitor(void * pvParameters) {
   }
 }
 
+void walk(void * pvParameters) {
+  while(1){  // マルチタスクは別個にループに入れる
+
+    if (fOK)
+    {
+      // 以下にモーション作成
+      servo_angle_write(ADDR_NECK,  CENTER_NECK );
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK  + 10);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST + 10);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  + 10);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + 10);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK );
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK  - 10);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST - 10);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  - 10);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT - 10);
+      delay(1000);
+  
+      // モーションはここまで
+    }
+    else
+    {
+      servo_angle_write(ADDR_NECK,  CENTER_NECK);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(100);
+    }
+  }
+}
+
 ///////////////////////////////////////////////////
 // setupは一度だけ実行され，初期設定を行う
 // 変更しないでください
@@ -290,7 +339,9 @@ void setup() {
   printHeader();
 
   // 加速度センサーの値を並列処理で取り続ける
-  xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,1,NULL,1);
+
+  xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,LOGTASK_PRI,NULL,LOGTASK_CORE);
+  xTaskCreatePinnedToCore(walk,"walk",4096,NULL,WALKTASK_PRI,NULL,WALKTASK_CORE);
   // xTaskCreatePinnedToCore(acc_monitor,"acc_monitor",4096,NULL,1,NULL,1);
 
   M5.Lcd.setCursor(0, 30);
@@ -304,29 +355,9 @@ void setup() {
 
 ///////////////////////////////////////////////////
 // loopの中身は電源を切るまで繰り返す
-// 指示された部分を変更してください
+// 今回はメイン処理をマルチタスク化したのでloop内はなにもない
 ///////////////////////////////////////////////////
 
 void loop() {
-  // M5.update();
-  if (fOK)
-  {
-    // 以下にモーション作成
-    servo_angle_write(ADDR_NECK,  80);
-    servo_angle_write(ADDR_WAIST, 100);
-    servo_angle_write(ADDR_LEFT,  80);
-    servo_angle_write(ADDR_RIGHT, 100);
-    delay(1000);
-
-    // モーションはここまで
-  }
-  else
-  {
-    servo_angle_write(ADDR_NECK,  CENTER_NECK);
-    servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-    servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-    servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
-    delay(100);
-  }
 
 }
