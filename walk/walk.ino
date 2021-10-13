@@ -49,10 +49,8 @@ int tiltDelay = 180;
 // マルチコア関連定数
 // 変更しないでください
 ///////////////////////////////////////////////////
-#define LOGTASK_CORE 1
-#define WALKTASK_CORE 0
-#define LOGTASK_PRI 1
-#define WALKTASK_PRI 2
+#define LOGTASK_CORE 0
+#define LOGTASK_PRI 0
 
 ///////////////////////////////////////////////////
 // 姿勢センサー関連
@@ -60,20 +58,10 @@ int tiltDelay = 180;
 ///////////////////////////////////////////////////
 
 // 加速度モニター用
-float accX = 0.0F;
-float accY = 0.0F;
-float accZ = 0.0F;
+float acc = 0.0F;
 float ax = 0.0F;
 float ay = 0.0F;
 float az = 0.0F;
-int depth = 200;
-int circle_x = 160;
-int circle_y = 120;
-
-// ロール，ピッチ，ヨー
-float roll = 0.0F;
-float pitch = 0.0F;
-float yaw = 0.0F;
 
 // 保存ファイル名の設定
 #define LOG_FILE_PREFIX "acclog"
@@ -213,100 +201,24 @@ void acc_log(void * pvParameters) {
       {
         time_cur = millis();
         M5.IMU.getAccelData(&ax,&ay,&az);
-//        M5.IMU.getAhrsData(&pitch,&roll,&yaw);
 
         // ローパスフィルタ
         float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
-        accX = ratio * accX + (1-ratio)*ax;
-        accY = ratio * accY + (1-ratio)*ay;
-        accZ = ratio * accZ + (1-ratio)*az;
-
-        logFile.print(time_cur);
-        logFile.print(',');
-        logFile.print(accX,6);
-        logFile.print(',');
-        logFile.print(accY,6);
-        logFile.print(',');
-        logFile.print(accZ,6);
-        logFile.println();
-        // Serial.println("ACC logged."); // Print a debug message
+        acc = ratio * acc + (1-ratio)*ay;
+        
+//        logFile.print(time_cur);
+//        logFile.print(',');
+//        logFile.print(acc,6);
+//        logFile.println();
+        
         lastLog = millis(); // Update the lastLog variable
       }
     }
-    vTaskDelay(1);
+    delay(1);
   }
 }
 
-void acc_monitor(void * pvParameters) {
-  while(1){  // マルチタスクは別個にループに入れる
 
-    // M5.IMU.getAccelData(&accX,&accY,&accZ);
-
-    // ローパスフィルタ
-    float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
-    circle_x = ratio*circle_x + (1-ratio)*(-depth*accX/accZ + 160);
-    circle_y = ratio*circle_y + (1-ratio)*( depth*accY/accZ + 120);
-
-    // 画面内に入れる
-    if(circle_x <  0){circle_x =   0;}
-    if(circle_x >320){circle_x = 320;}
-    if(circle_y <  0){circle_y =   0;}
-    if(circle_y >240){circle_y = 240;}
-
-    M5.Lcd.setCursor(0, 20);
-    M5.Lcd.printf(" Gx:%5.2f  Gy:%5.2f  Gz:%5.2f", accX, accY, accZ);
-    M5.Lcd.setCursor(0, 40);
-    M5.Lcd.printf(" X:%d  Y:%d", circle_x, circle_y);
-
-    M5.Lcd.drawCircle(160, 120, 20, WHITE); //枠だけ center-x, center-y, radius
-    M5.Lcd.drawRect(40, 60, 80, 120, WHITE); //枠だけ left, top, witdh, height
-    M5.Lcd.drawRect(200, 60, 80, 120, WHITE); //枠だけ left, top, witdh, height
-    M5.Lcd.fillCircle(circle_x, circle_y, 15, GREEN); //塗りつぶし center-x, center-y, radius
-    delay(50);
-    M5.Lcd.fillCircle(circle_x, circle_y, 15, BLACK); //塗りつぶし center-x, center-y, radius
-
-  }
-}
-
-void walk(void * pvParameters) {
-  while(1){  // マルチタスクは別個にループに入れる
-
-    if (fOK)
-    {
-      // 以下にモーション作成
-      servo_angle_write(ADDR_NECK,  CENTER_NECK );
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
-      delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK  + 10);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST + 10);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  + 10);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + 10);
-      delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK );
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
-      delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK  - 10);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST - 10);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  - 10);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT - 10);
-      delay(1000);
-  
-      // モーションはここまで
-    }
-    else
-    {
-      servo_angle_write(ADDR_NECK,  CENTER_NECK);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
-      delay(100);
-    }
-  }
-}
 
 ///////////////////////////////////////////////////
 // setupは一度だけ実行され，初期設定を行う
@@ -339,11 +251,8 @@ void setup() {
   printHeader();
 
   // 加速度センサーの値を並列処理で取り続ける
-
   xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,LOGTASK_PRI,NULL,LOGTASK_CORE);
-  xTaskCreatePinnedToCore(walk,"walk",4096,NULL,WALKTASK_PRI,NULL,WALKTASK_CORE);
-  // xTaskCreatePinnedToCore(acc_monitor,"acc_monitor",4096,NULL,1,NULL,1);
-
+  
   M5.Lcd.setCursor(0, 30);
   M5.Lcd.println("Press A button to start");
 
@@ -355,9 +264,43 @@ void setup() {
 
 ///////////////////////////////////////////////////
 // loopの中身は電源を切るまで繰り返す
-// 今回はメイン処理をマルチタスク化したのでloop内はなにもない
+// 指定された場所にモーションを作成してください
 ///////////////////////////////////////////////////
 
 void loop() {
-
+  
+    if (fOK)
+    {
+      // 以下にモーション作成
+      servo_angle_write(ADDR_NECK,  CENTER_NECK );
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK  + 15);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST + 15);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  + 15);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + 15);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK );
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(1000);
+      servo_angle_write(ADDR_NECK,  CENTER_NECK  - 15);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST - 15);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  - 15);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT - 15);
+      delay(1000);
+  
+      // モーションはここまで
+    }
+    else
+    {
+      servo_angle_write(ADDR_NECK,  CENTER_NECK);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(100);
+    }
 }
