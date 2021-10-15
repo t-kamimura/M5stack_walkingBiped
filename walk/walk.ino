@@ -45,6 +45,11 @@ int tiltAngle = 18;
 int twistDelay = 150;
 int tiltDelay = 180;
 
+int neck_angle = 90;
+int waist_angle = 90;
+int left_angle = 90;
+int right_angle = 90;
+
 ///////////////////////////////////////////////////
 // マルチコア関連定数
 // 変更しないでください
@@ -111,12 +116,20 @@ void servo_angle_write(uint8_t n, int Angle) {
 }
 
 void twist(int angle){
-  servo_angle_write(ADDR_NECK,  CENTER_NECK - angle);
-  servo_angle_write(ADDR_LEFT,  CENTER_LEFT + angle);
-  servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + angle);
+  neck_angle = CENTER_NECK - angle;
+  left_angle = CENTER_LEFT + angle;
+  right_angle = CENTER_RIGHT + angle;
+  servo_angle_write(ADDR_NECK, neck_angle);
+  servo_angle_write(ADDR_WAIST, waist_angle);
+  servo_angle_write(ADDR_LEFT, left_angle);
+  servo_angle_write(ADDR_RIGHT, right_angle);
 }
 void tilt(int angle){
-  servo_angle_write(ADDR_WAIST, CENTER_WAIST - angle);
+  waist_angle = CENTER_WAIST + angle;
+  servo_angle_write(ADDR_NECK, neck_angle);
+  servo_angle_write(ADDR_WAIST, waist_angle);
+  servo_angle_write(ADDR_LEFT, left_angle);
+  servo_angle_write(ADDR_RIGHT, right_angle);
 }
 
 ///////////////////////////////////////////////////
@@ -205,12 +218,13 @@ void acc_log(void * pvParameters) {
         // ローパスフィルタ
         float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
         acc = ratio * acc + (1-ratio)*ay;
-        
+
+        // SDカードにログを取るときは，以下4行冒頭の//を削除してください
 //        logFile.print(time_cur);
 //        logFile.print(',');
 //        logFile.print(acc,6);
 //        logFile.println();
-        
+
         lastLog = millis(); // Update the lastLog variable
       }
     }
@@ -236,10 +250,14 @@ void setup() {
   M5.Lcd.setTextSize(2);
 
   // 姿勢を全部初期位置に戻す
-  servo_angle_write(ADDR_NECK,  CENTER_NECK);
-  servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-  servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-  servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+  neck_angle = CENTER_NECK;
+  waist_angle = CENTER_WAIST;
+  left_angle = CENTER_LEFT;
+  right_angle = CENTER_RIGHT;
+  servo_angle_write(ADDR_NECK,  neck_angle);
+  servo_angle_write(ADDR_WAIST, waist_angle);
+  servo_angle_write(ADDR_LEFT,  left_angle);
+  servo_angle_write(ADDR_RIGHT, right_angle);
   delay(2000);
 
   // ログファイルの作成
@@ -252,7 +270,7 @@ void setup() {
 
   // 加速度センサーの値を並列処理で取り続ける
   xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,LOGTASK_PRI,NULL,LOGTASK_CORE);
-  
+
   M5.Lcd.setCursor(0, 30);
   M5.Lcd.println("Press A button to start");
 
@@ -268,31 +286,19 @@ void setup() {
 ///////////////////////////////////////////////////
 
 void loop() {
-  
+
     if (fOK)
     {
       // 以下にモーション作成
-      servo_angle_write(ADDR_NECK,  CENTER_NECK );
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      tilt(20);
       delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK  + 15);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST + 15);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  + 15);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT + 15);
+      tilt(0);
       delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK );
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      twist(-20);
       delay(1000);
-      servo_angle_write(ADDR_NECK,  CENTER_NECK  - 15);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST - 15);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT  - 15);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT - 15);
+      twist(0);
       delay(1000);
-  
+
       // モーションはここまで
     }
     else
