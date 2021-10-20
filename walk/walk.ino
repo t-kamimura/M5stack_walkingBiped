@@ -76,7 +76,7 @@ char logFileName[13];
 
 // File header
 #define LOG_COLUMN_COUNT 4
-char * log_col_names[LOG_COLUMN_COUNT] = {"time", "accX", "accY", "accZ"};
+char * log_col_names[LOG_COLUMN_COUNT] = {"time", "accY"};
 
 ///////////////////////////////////////////////////
 // 加速度ログ関連
