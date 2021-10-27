@@ -41,9 +41,9 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
 
 // 歩行パラメータ
 int twistAngle = 20;
-int tiltAngle = 18;
-int twistDelay = 150;
-int tiltDelay = 180;
+int tiltAngle = 12;
+int twistDelay = 350;
+int tiltDelay = 100;
 
 int neck_angle = 90;
 int waist_angle = 90;
@@ -54,8 +54,10 @@ int right_angle = 90;
 // マルチコア関連定数
 // 変更しないでください
 ///////////////////////////////////////////////////
-#define LOGTASK_CORE 0
-#define LOGTASK_PRI 0
+#define LOGTASK_CORE 1
+#define WALKTASK_CORE 1
+#define LOGTASK_PRI 1
+#define WALKTASK_PRI 2
 
 ///////////////////////////////////////////////////
 // 姿勢センサー関連
@@ -84,7 +86,7 @@ char * log_col_names[LOG_COLUMN_COUNT] = {"time", "accY"};
 ///////////////////////////////////////////////////
 
 // ログ周期の設定
-#define LOG_RATE 10 // Log every 10 milliseconds
+#define LOG_RATE 19 // Log every 20 milliseconds
 unsigned long lastLog = 0;
 
 // ファイル書き込み許可
@@ -120,16 +122,16 @@ void twist(int angle){
   left_angle = CENTER_LEFT + angle;
   right_angle = CENTER_RIGHT + angle;
   servo_angle_write(ADDR_NECK, neck_angle);
-  servo_angle_write(ADDR_WAIST, waist_angle);
+  // servo_angle_write(ADDR_WAIST, waist_angle);
   servo_angle_write(ADDR_LEFT, left_angle);
   servo_angle_write(ADDR_RIGHT, right_angle);
 }
 void tilt(int angle){
   waist_angle = CENTER_WAIST + angle;
-  servo_angle_write(ADDR_NECK, neck_angle);
+  // servo_angle_write(ADDR_NECK, neck_angle);
   servo_angle_write(ADDR_WAIST, waist_angle);
-  servo_angle_write(ADDR_LEFT, left_angle);
-  servo_angle_write(ADDR_RIGHT, right_angle);
+  // servo_angle_write(ADDR_LEFT, left_angle);
+  // servo_angle_write(ADDR_RIGHT, right_angle);
 }
 
 ///////////////////////////////////////////////////
@@ -220,16 +222,44 @@ void acc_log(void * pvParameters) {
         acc = ratio * acc + (1-ratio)*ay;
 
         // SDカードにログを取るときは，以下4行冒頭の//を削除してください
-//        logFile.print(time_cur);
-//        logFile.print(',');
-//        logFile.print(acc,6);
-//        logFile.println();
+        // logFile.print(time_cur);
+        // logFile.print(',');
+        // logFile.print(acc,6);
+        // logFile.println();
 
         lastLog = millis(); // Update the lastLog variable
       }
     }
     delay(1);
   }
+}
+
+void walk_task(void * pvParameters){
+  while (1)
+  {
+    if (fOK)
+    {
+      // 以下にモーション作成
+      tilt(20);
+      delay(1000);
+      tilt(0);
+      delay(1000);
+      twist(-20);
+      delay(1000);
+      twist(0);
+      delay(1000);
+      // モーションはここまで
+    }
+    else
+    {
+      servo_angle_write(ADDR_NECK,  CENTER_NECK);
+      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
+      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
+      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
+      delay(100);
+    }
+  }
+
 }
 
 
@@ -269,7 +299,8 @@ void setup() {
   printHeader();
 
   // 加速度センサーの値を並列処理で取り続ける
-  xTaskCreatePinnedToCore(acc_log,"acc_log",4096,NULL,LOGTASK_PRI,NULL,LOGTASK_CORE);
+  xTaskCreatePinnedToCore(acc_log,"acc_log",8192,NULL,LOGTASK_PRI,NULL,LOGTASK_CORE);
+  xTaskCreatePinnedToCore(walk_task,"walk_task",8192,NULL,WALKTASK_PRI,NULL,WALKTASK_CORE);
 
   M5.Lcd.setCursor(0, 30);
   M5.Lcd.println("Press A button to start");
@@ -282,31 +313,9 @@ void setup() {
 
 ///////////////////////////////////////////////////
 // loopの中身は電源を切るまで繰り返す
-// 指定された場所にモーションを作成してください
+// 今回はマルチタスクを使うのでloopの中にはなにもない
 ///////////////////////////////////////////////////
 
 void loop() {
-
-    if (fOK)
-    {
-      // 以下にモーション作成
-      tilt(20);
-      delay(1000);
-      tilt(0);
-      delay(1000);
-      twist(-20);
-      delay(1000);
-      twist(0);
-      delay(1000);
-
-      // モーションはここまで
-    }
-    else
-    {
-      servo_angle_write(ADDR_NECK,  CENTER_NECK);
-      servo_angle_write(ADDR_WAIST, CENTER_WAIST);
-      servo_angle_write(ADDR_LEFT,  CENTER_LEFT);
-      servo_angle_write(ADDR_RIGHT, CENTER_RIGHT);
-      delay(100);
-    }
+    delay(1);
 }
