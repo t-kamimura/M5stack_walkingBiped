@@ -40,10 +40,10 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
 ///////////////////////////////////////////////////
 
 // 歩行パラメータ
-int twistAngle = 20;
+int twistAngle = 15;
 int tiltAngle = 12;
 int twistDelay = 350;
-int tiltDelay = 100;
+int tiltDelay = 120;
 
 int neck_angle = 90;
 int waist_angle = 90;
@@ -56,8 +56,8 @@ int right_angle = 90;
 ///////////////////////////////////////////////////
 #define LOGTASK_CORE 1
 #define WALKTASK_CORE 1
-#define LOGTASK_PRI 1
-#define WALKTASK_PRI 2
+#define LOGTASK_PRI 2
+#define WALKTASK_PRI 3
 
 ///////////////////////////////////////////////////
 // 姿勢センサー関連
@@ -125,6 +125,7 @@ void twist(int angle){
   // servo_angle_write(ADDR_WAIST, waist_angle);
   servo_angle_write(ADDR_LEFT, left_angle);
   servo_angle_write(ADDR_RIGHT, right_angle);
+  delay(1);
 }
 void tilt(int angle){
   waist_angle = CENTER_WAIST + angle;
@@ -132,6 +133,7 @@ void tilt(int angle){
   servo_angle_write(ADDR_WAIST, waist_angle);
   // servo_angle_write(ADDR_LEFT, left_angle);
   // servo_angle_write(ADDR_RIGHT, right_angle);
+  delay(1);
 }
 
 ///////////////////////////////////////////////////
@@ -214,18 +216,13 @@ void acc_log(void * pvParameters) {
     if (fOK) {
       if ((lastLog + LOG_RATE) <= millis())  //前回のデータからちょっと時間がたっていれば
       {
-        time_cur = millis();
-        M5.IMU.getAccelData(&ax,&ay,&az);
-
-        // ローパスフィルタ
-        float ratio = 0.5;  // 大きいとフィルタ強いが，遅れが大きくなる
-        acc = ratio * acc + (1-ratio)*ay;
-
-        // SDカードにログを取るときは，以下4行冒頭の//を削除してください
-        // logFile.print(time_cur);
-        // logFile.print(',');
-        // logFile.print(acc,6);
-        // logFile.println();
+        
+        // SDカードにログを取るときは，以下5行冒頭の//を削除してコメントを解除してください
+        // time_cur = millis();
+        // M5.IMU.getAccelData(&ax,&ay,&az);
+        // float ratio = 0.5;  // ローパスフィルタ．大きいとフィルタ強いが，遅れが大きくなる
+        // acc = ratio * acc + (1-ratio)*ay;
+        // logFile.print(time_cur); logFile.print(','); logFile.print(acc,6); logFile.println();
 
         lastLog = millis(); // Update the lastLog variable
       }
@@ -241,6 +238,10 @@ void walk_task(void * pvParameters){
     {
       // 以下にモーション作成
       tilt(20);
+      delay(1000);
+      tilt(0);
+      delay(1000);
+      tilt(-20);
       delay(1000);
       tilt(0);
       delay(1000);
