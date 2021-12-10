@@ -40,14 +40,14 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
 ///////////////////////////////////////////////////
 
 // 歩行パラメータ
-int twistAngle = 15;
+int twistAngle = 18;
 int tiltAngle = 12;
 int twistDelay = 350;
 int tiltDelay = 120;
 
-int neck_angle = 90;
+int neck_angle  = 90;
 int waist_angle = 90;
-int left_angle = 90;
+int left_angle  = 90;
 int right_angle = 90;
 
 ///////////////////////////////////////////////////
@@ -121,18 +121,23 @@ void twist(int angle){
   neck_angle = CENTER_NECK - angle;
   left_angle = CENTER_LEFT + angle;
   right_angle = CENTER_RIGHT + angle;
+  
+  // 命令が飛ぶことがあるので2回同じ命令をする
   servo_angle_write(ADDR_NECK, neck_angle);
-  // servo_angle_write(ADDR_WAIST, waist_angle);
+  servo_angle_write(ADDR_LEFT, left_angle);
+  servo_angle_write(ADDR_RIGHT, right_angle);
+  delay(1);
+  servo_angle_write(ADDR_NECK, neck_angle);
   servo_angle_write(ADDR_LEFT, left_angle);
   servo_angle_write(ADDR_RIGHT, right_angle);
   delay(1);
 }
 void tilt(int angle){
   waist_angle = CENTER_WAIST + angle;
-  // servo_angle_write(ADDR_NECK, neck_angle);
+  // 命令が飛ぶことがあるので2回同じ命令をする
   servo_angle_write(ADDR_WAIST, waist_angle);
-  // servo_angle_write(ADDR_LEFT, left_angle);
-  // servo_angle_write(ADDR_RIGHT, right_angle);
+  delay(1);
+  servo_angle_write(ADDR_WAIST, waist_angle);
   delay(1);
 }
 
@@ -249,6 +254,7 @@ void walk_task(void * pvParameters){
       delay(1000);
       twist(0);
       delay(1000);
+
       // モーションはここまで
     }
     else
@@ -281,9 +287,9 @@ void setup() {
   M5.Lcd.setTextSize(2);
 
   // 姿勢を全部初期位置に戻す
-  neck_angle = CENTER_NECK;
+  neck_angle  = CENTER_NECK;
   waist_angle = CENTER_WAIST;
-  left_angle = CENTER_LEFT;
+  left_angle  = CENTER_LEFT;
   right_angle = CENTER_RIGHT;
   servo_angle_write(ADDR_NECK,  neck_angle);
   servo_angle_write(ADDR_WAIST, waist_angle);
